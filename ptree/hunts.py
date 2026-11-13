@@ -70,24 +70,25 @@ def web_shell_injection(forest: Forest) -> list[Alert]:
 
 
 def discovery_from_unusual_parent(forest: Forest) -> list[Alert]:
-    """Group discovery commands under the shell that ran them, when that shell sits
-    under a web server or an Office program."""
+    """Discovery commands run by a shell that sits under a web server or an Office
+    program. Grouped by that web server or Office process, so a web shell that runs
+    one command per request still gives one alert, not one per request."""
     groups: dict[str, list[Node]] = defaultdict(list)
     for n in forest.real():
-        if not _is_discovery(n):
+        if not _is_discovery(n) or forest.nodes[n.parent].name not in SHELLS:
             continue
-        parent = forest.nodes[n.parent]
         root = _has_ancestor(forest, n.key, WEB_SERVERS | OFFICE)
-        if root is not None and parent.name in SHELLS:
-            groups[parent.key].append(n)
+        if root is not None:
+            groups[root.key].append(n)
     out = []
-    for shell_key, found in groups.items():
-        root = _has_ancestor(forest, shell_key, WEB_SERVERS | OFFICE)
+    for root_key, found in groups.items():
+        root = forest.nodes[root_key]
         names = ", ".join(n.proc.cmd for n in found)
         sev = "high" if len(found) >= 3 else "medium"
-        out.append(Alert("discovery_from_unusual_parent", "T1033,T1082,T1087", sev, shell_key,
+        shells = list(dict.fromkeys(n.parent for n in found))
+        out.append(Alert("discovery_from_unusual_parent", "T1033,T1082,T1087", sev, found[0].parent,
                          f"{len(found)} discovery command(s) under {root.name}: {names[:140]}",
-                         [shell_key, *(n.key for n in found)]))
+                         [*shells, *(n.key for n in found)]))
     return out
 
 
@@ -155,8 +156,12 @@ def download_then_execute(forest: Forest) -> list[Alert]:
 
 def shell_network(forest: Forest, nets: list[Net]) -> list[Alert]:
     out = []
-    by_guid = {k for k in forest.nodes}
+    by_guid = set(forest.nodes)
     for n in forest.real():
+        # Skip a shell whose child shell carries the same /dev/tcp text: the injected
+        # `sh -c "...; bash -c '...dev/tcp...'"` and the bash it starts are one event.
+        if any(d.name in SHELLS and "/dev/tcp/" in d.proc.cmd for d in forest.descendants(n.key)):
+            continue
         if n.name in SHELLS and "/dev/tcp/" in n.proc.cmd:
             out.append(Alert("shell_network", "T1059.004", "high", n.key,
                              f"shell opens a TCP socket: {n.proc.cmd[:100]}", [n.key]))
