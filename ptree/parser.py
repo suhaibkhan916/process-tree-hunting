@@ -87,16 +87,32 @@ def _event(elem: ET.Element) -> tuple[int, str, dict[str, str]]:
 def _add(cap: Capture, event_id: int, host: str, d: dict[str, str]) -> None:
     g = d.get
     if event_id == 1:
-        cap.procs.append(Proc(
-            guid=g("ProcessGuid", ZERO_GUID), pid=_int(g("ProcessId", "")), image=g("Image", ""),
-            cmd=g("CommandLine", ""), parent_guid=g("ParentProcessGuid", ZERO_GUID),
-            parent_pid=_int(g("ParentProcessId", "")), parent_image=g("ParentImage", "-") or "-",
-            parent_cmd=g("ParentCommandLine", ""), user=g("User", ""), time=g("UtcTime", ""), host=host,
-        ))
+        cap.procs.append(
+            Proc(
+                guid=g("ProcessGuid", ZERO_GUID),
+                pid=_int(g("ProcessId", "")),
+                image=g("Image", ""),
+                cmd=g("CommandLine", ""),
+                parent_guid=g("ParentProcessGuid", ZERO_GUID),
+                parent_pid=_int(g("ParentProcessId", "")),
+                parent_image=g("ParentImage", "-") or "-",
+                parent_cmd=g("ParentCommandLine", ""),
+                user=g("User", ""),
+                time=g("UtcTime", ""),
+                host=host,
+            )
+        )
     elif event_id == 3:
-        cap.nets.append(Net(guid=g("ProcessGuid", ZERO_GUID), pid=_int(g("ProcessId", "")),
-                            image=g("Image", ""), dest_ip=g("DestinationIp", ""),
-                            dest_port=g("DestinationPort", ""), time=g("UtcTime", "")))
+        cap.nets.append(
+            Net(
+                guid=g("ProcessGuid", ZERO_GUID),
+                pid=_int(g("ProcessId", "")),
+                image=g("Image", ""),
+                dest_ip=g("DestinationIp", ""),
+                dest_port=g("DestinationPort", ""),
+                time=g("UtcTime", ""),
+            )
+        )
 
 
 def _read_text(path: Path) -> str:

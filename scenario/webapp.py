@@ -1,5 +1,6 @@
 """A deliberately vulnerable lab web app. Runs only inside the disposable sensor container,
 bound to 127.0.0.1. /ping passes the host parameter to a shell, which is the bug."""
+
 import subprocess
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qs, urlparse

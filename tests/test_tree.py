@@ -8,16 +8,21 @@ from ptree.tree import Forest
 DATA = Path(__file__).resolve().parent.parent / "data"
 
 
-def proc(guid, image, parent_guid=ZERO_GUID, pid=1, parent_pid=0, parent_image="-", t="2026-01-01 00:00:00.000"):
+def proc(
+    guid, image, parent_guid=ZERO_GUID, pid=1, parent_pid=0, parent_image="-", t="2026-01-01 00:00:00.000"
+):
     return Proc(guid, pid, image, image, parent_guid, parent_pid, parent_image, "", "", t, "h")
 
 
-@pytest.mark.parametrize("path, name", [
-    ("/usr/bin/dash", "dash"),
-    (r"C:\Windows\System32\cmd.exe", "cmd.exe"),
-    (r"C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE", "winword.exe"),
-    ("", "-"),
-])
+@pytest.mark.parametrize(
+    "path, name",
+    [
+        ("/usr/bin/dash", "dash"),
+        (r"C:\Windows\System32\cmd.exe", "cmd.exe"),
+        (r"C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE", "winword.exe"),
+        ("", "-"),
+    ],
+)
 def test_basename(path, name):
     assert basename(path) == name
 
@@ -43,15 +48,21 @@ def test_truncated_syslog_line_is_counted(tmp_path):
 
 def test_guid_beats_reused_pid():
     # Same PID twice: the tree must still link each child to the right parent.
-    procs = [proc("{a}", "/bin/bash", pid=10, t="1"), proc("{b}", "/bin/ls", "{a}", pid=11, parent_pid=10, t="2"),
-             proc("{c}", "/bin/sh", pid=10, t="3"), proc("{d}", "/bin/id", "{c}", pid=12, parent_pid=10, t="4")]
+    procs = [
+        proc("{a}", "/bin/bash", pid=10, t="1"),
+        proc("{b}", "/bin/ls", "{a}", pid=11, parent_pid=10, t="2"),
+        proc("{c}", "/bin/sh", pid=10, t="3"),
+        proc("{d}", "/bin/id", "{c}", pid=12, parent_pid=10, t="4"),
+    ]
     f = Forest(procs)
     assert [n.name for n in f.descendants("{c}")] == ["id"]
 
 
 def test_zero_guid_parents_share_one_placeholder():
-    procs = [proc("{a}", "/bin/bash", parent_pid=99, parent_image="-"),
-             proc("{b}", "/bin/grep", parent_pid=99, parent_image="-")]
+    procs = [
+        proc("{a}", "/bin/bash", parent_pid=99, parent_image="-"),
+        proc("{b}", "/bin/grep", parent_pid=99, parent_image="-"),
+    ]
     f = Forest(procs)
     roots = f.roots
     assert len(roots) == 1 and roots[0].placeholder and len(roots[0].children) == 2

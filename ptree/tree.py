@@ -46,11 +46,15 @@ class Forest:
     def _parent_key(self, p: Proc) -> str:
         if p.parent_guid != ZERO_GUID and p.parent_guid in self.nodes:
             return p.parent_guid
-        key = (p.parent_guid if p.parent_guid != ZERO_GUID
-               else f"orphan:{p.host}:{p.parent_pid}:{p.parent_image}")
+        key = (
+            p.parent_guid
+            if p.parent_guid != ZERO_GUID
+            else f"orphan:{p.host}:{p.parent_pid}:{p.parent_image}"
+        )
         if key not in self.nodes:
-            ghost = Proc(key, p.parent_pid, p.parent_image, p.parent_cmd, ZERO_GUID, -1, "-", "",
-                         "", "", p.host)
+            ghost = Proc(
+                key, p.parent_pid, p.parent_image, p.parent_cmd, ZERO_GUID, -1, "-", "", "", "", p.host
+            )
             self.nodes[key] = Node(key, ghost, placeholder=True)
         return key
 
@@ -87,9 +91,23 @@ class Forest:
     def by_pid(self, pid: int) -> list[Node]:
         return [n for n in self.real() if n.proc.pid == pid]
 
-    def render(self, key: str, mark: set[str] | None = None, width: int = 90) -> str:
-        """ASCII tree under key. Nodes in `mark` get a '<<' marker."""
+    def common_ancestor(self, keys: list[str]) -> str:
+        """Lowest node that has every key in its subtree (a key counts as its own ancestor)."""
+        paths = [[k, *(a.key for a in self.ancestors(k))] for k in keys]
+        shared = set(paths[0]).intersection(*paths[1:])
+        return next(k for k in paths[0] if k in shared)
+
+    def render(self, key: str, mark: set[str] | None = None, width: int = 90, pruned: bool = False) -> str:
+        """ASCII tree under key. Nodes in `mark` get a '<<' marker. With pruned=True only
+        the paths down to marked nodes, and everything under a marked node, are drawn."""
         mark = mark or set()
+        keep: set[str] | None = None
+        if pruned and mark:
+            keep = set()
+            for m in mark:
+                keep.add(m)
+                keep.update(a.key for a in self.ancestors(m))
+                keep.update(d.key for d in self.descendants(m))
         lines: list[str] = []
 
         def walk(k: str, prefix: str, last: bool, top: bool) -> None:
@@ -101,8 +119,9 @@ class Forest:
             flag = "  <<" if k in mark else ""
             lines.append(label + flag if top else f"{prefix}{'`-- ' if last else '|-- '}{label}{flag}")
             child_prefix = "" if top else prefix + ("    " if last else "|   ")
-            for i, c in enumerate(n.children):
-                walk(c, child_prefix, i == len(n.children) - 1, False)
+            kids = [c for c in n.children if keep is None or c in keep]
+            for i, c in enumerate(kids):
+                walk(c, child_prefix, i == len(kids) - 1, False)
 
         walk(key, "", True, True)
         return "\n".join(lines)

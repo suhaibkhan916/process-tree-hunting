@@ -19,13 +19,40 @@ from dataclasses import dataclass, field
 from ptree.parser import Net, basename
 from ptree.tree import Forest, Node
 
-WEB_SERVERS = {"w3wp.exe", "httpd", "apache2", "nginx", "php-fpm", "java", "node", "gunicorn", "uwsgi",
-               "python3", "python3.10", "python3.11", "python3.12"}
+WEB_SERVERS = {
+    "w3wp.exe",
+    "httpd",
+    "apache2",
+    "nginx",
+    "php-fpm",
+    "java",
+    "node",
+    "gunicorn",
+    "uwsgi",
+    "python3",
+    "python3.10",
+    "python3.11",
+    "python3.12",
+}
 OFFICE = {"winword.exe", "excel.exe", "powerpnt.exe", "outlook.exe", "onenote.exe"}
 SHELLS = {"sh", "dash", "bash", "zsh", "cmd.exe", "powershell.exe", "pwsh.exe"}
 LOLBINS = {"mshta.exe", "rundll32.exe", "regsvr32.exe", "wscript.exe", "cscript.exe", "certutil.exe"}
-DISCOVERY = {"id", "whoami", "uname", "hostname", "ifconfig", "ip", "whoami.exe", "hostname.exe",
-             "systeminfo.exe", "ipconfig.exe", "nltest.exe", "net.exe", "net1.exe", "quser.exe"}
+DISCOVERY = {
+    "id",
+    "whoami",
+    "uname",
+    "hostname",
+    "ifconfig",
+    "ip",
+    "whoami.exe",
+    "hostname.exe",
+    "systeminfo.exe",
+    "ipconfig.exe",
+    "nltest.exe",
+    "net.exe",
+    "net1.exe",
+    "quser.exe",
+}
 SENSITIVE_FILES = ("/etc/passwd", "/etc/shadow")
 DOWNLOADERS = {"curl", "wget", "certutil.exe", "bitsadmin.exe"}
 # Shell syntax that chains a second command. In a web server's shell this is the
@@ -41,7 +68,7 @@ class Alert:
     rule: str
     attack: str
     severity: str
-    anchor: str                       # node key the analyst should start from
+    anchor: str  # node key the analyst should start from
     summary: str
     evidence: list[str] = field(default_factory=list)  # node keys
 
@@ -63,9 +90,16 @@ def web_shell_injection(forest: Forest) -> list[Alert]:
     out = []
     for n in forest.real():
         if n.name in SHELLS and forest.nodes[n.parent].name in WEB_SERVERS and CHAINING.search(n.proc.cmd):
-            out.append(Alert("web_shell_injection", "T1190", "high", n.key,
-                             f"{forest.nodes[n.parent].name} ran a shell with chained commands: {n.proc.cmd[:120]}",
-                             [n.key]))
+            out.append(
+                Alert(
+                    "web_shell_injection",
+                    "T1190",
+                    "high",
+                    n.key,
+                    f"{forest.nodes[n.parent].name} ran a shell with chained commands: {n.proc.cmd[:120]}",
+                    [n.key],
+                )
+            )
     return out
 
 
@@ -86,9 +120,16 @@ def discovery_from_unusual_parent(forest: Forest) -> list[Alert]:
         names = ", ".join(n.proc.cmd for n in found)
         sev = "high" if len(found) >= 3 else "medium"
         shells = list(dict.fromkeys(n.parent for n in found))
-        out.append(Alert("discovery_from_unusual_parent", "T1033,T1082,T1087", sev, found[0].parent,
-                         f"{len(found)} discovery command(s) under {root.name}: {names[:140]}",
-                         [*shells, *(n.key for n in found)]))
+        out.append(
+            Alert(
+                "discovery_from_unusual_parent",
+                "T1033,T1082,T1087",
+                sev,
+                found[0].parent,
+                f"{len(found)} discovery command(s) under {root.name}: {names[:140]}",
+                [*shells, *(n.key for n in found)],
+            )
+        )
     return out
 
 
@@ -97,8 +138,16 @@ def office_spawns_shell(forest: Forest) -> list[Alert]:
     for n in forest.real():
         parent = forest.nodes[n.parent]
         if parent.name in OFFICE and (n.name in SHELLS or n.name in LOLBINS):
-            out.append(Alert("office_spawns_shell", "T1204.002,T1059", "critical", n.key,
-                             f"{parent.name} started {n.name}: {n.proc.cmd[:120]}", [parent.key, n.key]))
+            out.append(
+                Alert(
+                    "office_spawns_shell",
+                    "T1204.002,T1059",
+                    "critical",
+                    n.key,
+                    f"{parent.name} started {n.name}: {n.proc.cmd[:120]}",
+                    [parent.key, n.key],
+                )
+            )
     return out
 
 
@@ -118,8 +167,16 @@ def encoded_powershell(forest: Forest) -> list[Alert]:
         if n.name in ("powershell.exe", "pwsh.exe") and ENCODED.search(n.proc.cmd):
             decoded = decode_powershell(n.proc.cmd)
             shown = f"decodes to: {decoded}" if decoded is not None else "could not decode"
-            out.append(Alert("encoded_powershell", "T1059.001,T1027", "high", n.key,
-                             f"PowerShell with an encoded command, {shown}", [n.key]))
+            out.append(
+                Alert(
+                    "encoded_powershell",
+                    "T1059.001,T1027",
+                    "high",
+                    n.key,
+                    f"PowerShell with an encoded command, {shown}",
+                    [n.key],
+                )
+            )
     return out
 
 
@@ -145,12 +202,22 @@ def download_then_execute(forest: Forest) -> list[Alert]:
         for target in _download_targets(n.proc.cmd):
             if target in ("/dev/null", "-"):
                 continue
-            later = [d for d in forest.descendants(parent.key)
-                     if d.key != n.key and d.proc.time >= n.proc.time and target in d.proc.cmd]
+            later = [
+                d
+                for d in forest.descendants(parent.key)
+                if d.key != n.key and d.proc.time >= n.proc.time and target in d.proc.cmd
+            ]
             if later:
-                out.append(Alert("download_then_execute", "T1105,T1059.004", "high", parent.key,
-                                 f"{n.name} saved {target}, then {later[0].proc.cmd[:80]!r} ran it",
-                                 [n.key, *(d.key for d in later)]))
+                out.append(
+                    Alert(
+                        "download_then_execute",
+                        "T1105,T1059.004",
+                        "high",
+                        parent.key,
+                        f"{n.name} saved {target}, then {later[0].proc.cmd[:80]!r} ran it",
+                        [n.key, *(d.key for d in later)],
+                    )
+                )
     return out
 
 
@@ -163,20 +230,42 @@ def shell_network(forest: Forest, nets: list[Net]) -> list[Alert]:
         if any(d.name in SHELLS and "/dev/tcp/" in d.proc.cmd for d in forest.descendants(n.key)):
             continue
         if n.name in SHELLS and "/dev/tcp/" in n.proc.cmd:
-            out.append(Alert("shell_network", "T1059.004", "high", n.key,
-                             f"shell opens a TCP socket: {n.proc.cmd[:100]}", [n.key]))
+            out.append(
+                Alert(
+                    "shell_network",
+                    "T1059.004",
+                    "high",
+                    n.key,
+                    f"shell opens a TCP socket: {n.proc.cmd[:100]}",
+                    [n.key],
+                )
+            )
     seen = {a.anchor for a in out}
     for c in nets:
         if basename(c.image) in SHELLS and c.guid in by_guid and c.guid not in seen:
             seen.add(c.guid)
-            out.append(Alert("shell_network", "T1059.004", "high", c.guid,
-                             f"{basename(c.image)} connected to {c.dest_ip}:{c.dest_port}", [c.guid]))
+            out.append(
+                Alert(
+                    "shell_network",
+                    "T1059.004",
+                    "high",
+                    c.guid,
+                    f"{basename(c.image)} connected to {c.dest_ip}:{c.dest_port}",
+                    [c.guid],
+                )
+            )
     return out
 
 
 def run_rules(forest: Forest, nets: list[Net] | None = None) -> list[Alert]:
-    alerts = (web_shell_injection(forest) + discovery_from_unusual_parent(forest) + office_spawns_shell(forest)
-              + encoded_powershell(forest) + download_then_execute(forest) + shell_network(forest, nets or []))
+    alerts = (
+        web_shell_injection(forest)
+        + discovery_from_unusual_parent(forest)
+        + office_spawns_shell(forest)
+        + encoded_powershell(forest)
+        + download_then_execute(forest)
+        + shell_network(forest, nets or [])
+    )
     return sorted(alerts, key=lambda a: (forest.nodes[a.anchor].proc.time, SEVERITY[a.severity]))
 
 

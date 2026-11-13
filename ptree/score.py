@@ -51,8 +51,11 @@ class Score:
 def score(forest: Forest, truth: set[str], method: str, groups: list[list[str]]) -> Score:
     all_steps = steps(forest, truth)
     hit = set().union(*groups) if groups else set()
-    missed = [forest.nodes[min(s, key=lambda k: forest.nodes[k].proc.time)].proc.cmd[:90]
-              for s in all_steps if not s & hit]
+    missed = [
+        forest.nodes[min(s, key=lambda k: forest.nodes[k].proc.time)].proc.cmd[:90]
+        for s in all_steps
+        if not s & hit
+    ]
     false = sum(1 for g in groups if not set(g) & truth)
     return Score(method, len(all_steps) - len(missed), len(all_steps), len(groups), false, missed)
 
