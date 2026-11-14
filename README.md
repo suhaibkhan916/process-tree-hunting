@@ -1,5 +1,7 @@
 # process-tree-hunting
 
+[![ci](https://github.com/suhaibkhan916/process-tree-hunting/actions/workflows/ci.yml/badge.svg)](https://github.com/suhaibkhan916/process-tree-hunting/actions/workflows/ci.yml)
+
 Build process trees from Sysmon ProcessCreate events and hunt in them two ways: with lineage rules written from attacker behaviour (web server to shell, Office to shell), and with stacking (chains that never appear in a baseline). Both are scored against ground truth on a real Sysmon for Linux capture and on synthetic Windows Sysmon data.
 
 **Data:**
@@ -80,7 +82,7 @@ What the capture showed:
 - **Processes started before Sysmon have an all-zero parent GUID** and `ParentImage` of `-`. The forest turns these into one placeholder node per parent PID, so `benign.sh` and `attack.sh` still have tree roots.
 - **The injected shell forks every command.** `dash` ran `ping`, `id`, `whoami` and the rest as separate children, so each one is its own ProcessCreate event with the shell as parent.
 
-Checks in this build: 37 pytest tests pass on Python 3.14 locally and on Python 3.10 in a `python:3.10-slim` container. `ruff check` and `ruff format --check` are clean. CI has not run yet, because the repo is not pushed.
+Checks in this build: 37 pytest tests pass on Python 3.14 locally and on Python 3.10 in a `python:3.10-slim` container. `ruff check` and `ruff format --check` are clean. The same checks, the scorecard and both hunt reports pass on GitHub Actions on Python 3.10, 3.12 and 3.13, with the same scorecard numbers.
 
 ## What broke and how it was fixed
 
